@@ -275,8 +275,38 @@ export function getToolDefinitions() {
               },
             },
             reminders: {
-              ...remindersInputProperty,
+              type: "object",
               description: "New reminder settings for the event (optional)",
+              properties: {
+                useDefault: {
+                  type: "boolean",
+                  description: "Whether to use the default reminders",
+                },
+                overrides: {
+                  type: "array",
+                  description:
+                    "Custom reminders (uses popup notifications by default unless email is specified)",
+                  items: {
+                    type: "object",
+                    properties: {
+                      method: {
+                        type: "string",
+                        enum: ["email", "popup"],
+                        description:
+                          "Reminder method (defaults to popup unless email is specified)",
+                        default: "popup",
+                      },
+                      minutes: {
+                        type: "number",
+                        description:
+                          "Minutes before the event to trigger the reminder",
+                      },
+                    },
+                    required: ["minutes"],
+                  },
+                },
+              },
+              required: ["useDefault"],
             },
             recurrence: {
               type: "array",
