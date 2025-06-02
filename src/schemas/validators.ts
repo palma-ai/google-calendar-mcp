@@ -128,7 +128,7 @@ export const CreateEventArgumentsSchema = z.object({
   recurrence: z.array(z.string()).optional(),
   sendUpdates: z
     .enum(["all", "externalOnly", "none"])
-    .optional()
+    .default("all")
     .describe(
       'Whether to send notifications about the creation of the new event. "all": send to all guests, "externalOnly": send to non-Google Calendar guests only, "none": no notifications sent'
     ),
@@ -184,7 +184,7 @@ export const UpdateEventArgumentsSchema = z
       .optional(),
     sendUpdates: z
       .enum(["all", "externalOnly", "none"])
-      .optional()
+      .default("all")
       .describe(
         'Whether to send notifications about the event update. "all": send to all guests, "externalOnly": send to non-Google Calendar guests only, "none": no notifications sent'
       ),
@@ -237,7 +237,7 @@ export const DeleteEventArgumentsSchema = z.object({
   eventId: z.string(),
   sendUpdates: z
     .enum(["all", "externalOnly", "none"])
-    .optional()
+    .default("all")
     .describe(
       'Whether to send notifications about the event deletion. "all": send to all guests, "externalOnly": send to non-Google Calendar guests only, "none": no notifications sent'
     ),

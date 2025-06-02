@@ -202,8 +202,9 @@ export function getToolDefinitions() {
             sendUpdates: {
               type: "string",
               enum: ["all", "externalOnly", "none"],
+              default: "all",
               description:
-                "Whether to send notifications about the creation of the new event (optional). 'all': Notifications are sent to all guests. 'externalOnly': Notifications are sent to non-Google Calendar guests only. 'none': No notifications are sent.",
+                "Whether to send notifications about the creation of the new event (optional, defaults to 'all'). 'all': Notifications are sent to all guests. 'externalOnly': Notifications are sent to non-Google Calendar guests only. 'none': No notifications are sent.",
             },
           },
           required: ["calendarId", "summary", "start", "end", "timeZone"],
@@ -307,8 +308,9 @@ export function getToolDefinitions() {
             sendUpdates: {
               type: "string",
               enum: ["all", "externalOnly", "none"],
+              default: "all",
               description:
-                "Whether to send notifications about the event update (optional). 'all': Notifications are sent to all guests. 'externalOnly': Notifications are sent to non-Google Calendar guests only. 'none': No notifications are sent.",
+                "Whether to send notifications about the event update (optional, defaults to 'all'). 'all': Notifications are sent to all guests. 'externalOnly': Notifications are sent to non-Google Calendar guests only. 'none': No notifications are sent.",
             },
           },
           required: ["calendarId", "eventId", "timeZone"],
@@ -331,8 +333,9 @@ export function getToolDefinitions() {
             sendUpdates: {
               type: "string",
               enum: ["all", "externalOnly", "none"],
+              default: "all",
               description:
-                "Whether to send notifications about the event deletion (optional). 'all': Notifications are sent to all guests. 'externalOnly': Notifications are sent to non-Google Calendar guests only. 'none': No notifications are sent.",
+                "Whether to send notifications about the event deletion (optional, defaults to 'all'). 'all': Notifications are sent to all guests. 'externalOnly': Notifications are sent to non-Google Calendar guests only. 'none': No notifications are sent.",
             },
           },
           required: ["calendarId", "eventId"],

@@ -338,6 +338,7 @@ describe("Google Calendar MCP Tool Calls", () => {
         reminders: mockEventArgs.reminders,
         recurrence: mockEventArgs.recurrence,
       },
+      sendUpdates: "all",
     });
     expect(result).toEqual({
       content: [
@@ -498,6 +499,7 @@ describe("Google Calendar MCP Tool Calls", () => {
     expect(mockCalendarApi.events.delete).toHaveBeenCalledWith({
       calendarId: deleteEventArgs.calendarId,
       eventId: deleteEventArgs.eventId,
+      sendUpdates: "all",
     });
 
     expect(result.content[0].text).toBe("Event deleted successfully");
@@ -606,7 +608,7 @@ describe("Google Calendar MCP Tool Calls", () => {
         end: { timeZone: updateEventArgs.timeZone },
         colorId: updateEventArgs.colorId,
       },
-      sendUpdates: undefined,
+      sendUpdates: "all",
     });
     expect(result.content[0].text).toBe(
       `Event updated: ${mockApiResponse.summary} (${mockApiResponse.id})`
