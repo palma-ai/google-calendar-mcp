@@ -304,30 +304,14 @@ export function getToolDefinitions() {
               description:
                 "Required when modificationScope is 'future'. Start date for future modifications in ISO format with timezone (e.g., 2024-08-20T10:00:00-07:00). Must be a future date.",
             },
+            sendUpdates: {
+              type: "string",
+              enum: ["all", "externalOnly", "none"],
+              description:
+                "Whether to send notifications about the event update (optional). 'all': Notifications are sent to all guests. 'externalOnly': Notifications are sent to non-Google Calendar guests only. 'none': No notifications are sent.",
+            },
           },
-          required: ["calendarId", "eventId", "timeZone"], // timeZone is technically required for PATCH
-          allOf: [
-            {
-              if: {
-                properties: {
-                  modificationScope: { const: "single" },
-                },
-              },
-              then: {
-                required: ["originalStartTime"],
-              },
-            },
-            {
-              if: {
-                properties: {
-                  modificationScope: { const: "future" },
-                },
-              },
-              then: {
-                required: ["futureStartDate"],
-              },
-            },
-          ],
+          required: ["calendarId", "eventId", "timeZone"],
         },
       },
       {
@@ -343,6 +327,12 @@ export function getToolDefinitions() {
             eventId: {
               type: "string",
               description: "ID of the event to delete",
+            },
+            sendUpdates: {
+              type: "string",
+              enum: ["all", "externalOnly", "none"],
+              description:
+                "Whether to send notifications about the event deletion (optional). 'all': Notifications are sent to all guests. 'externalOnly': Notifications are sent to non-Google Calendar guests only. 'none': No notifications are sent.",
             },
           },
           required: ["calendarId", "eventId"],

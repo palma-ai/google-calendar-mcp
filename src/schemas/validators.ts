@@ -182,6 +182,12 @@ export const UpdateEventArgumentsSchema = z
         "Must be ISO format with timezone (e.g., 2024-01-01T00:00:00Z)"
       )
       .optional(),
+    sendUpdates: z
+      .enum(["all", "externalOnly", "none"])
+      .optional()
+      .describe(
+        'Whether to send notifications about the event update. "all": send to all guests, "externalOnly": send to non-Google Calendar guests only, "none": no notifications sent'
+      ),
   })
   .refine(
     (data) => {
@@ -229,6 +235,12 @@ export const UpdateEventArgumentsSchema = z
 export const DeleteEventArgumentsSchema = z.object({
   calendarId: z.string(),
   eventId: z.string(),
+  sendUpdates: z
+    .enum(["all", "externalOnly", "none"])
+    .optional()
+    .describe(
+      'Whether to send notifications about the event deletion. "all": send to all guests, "externalOnly": send to non-Google Calendar guests only, "none": no notifications sent'
+    ),
 });
 
 export const FreeBusyEventArgumentsSchema = z.object({
