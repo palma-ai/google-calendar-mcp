@@ -18,7 +18,10 @@ export function formatEventList(events: calendar_v3.Schema$Event[]): string {
                 ? `\nReminders: ${event.reminders.useDefault ? 'Using default' :
                     (event.reminders.overrides || []).map((r: any) => `${r.method} ${r.minutes} minutes before`).join(', ') || 'None'}`
                 : "";
-            return `${event.summary || "Untitled"} (${event.id || "no-id"})${locationInfo}${descriptionInfo}\nStart: ${event.start?.dateTime || event.start?.date || "unspecified"}\nEnd: ${event.end?.dateTime || event.end?.date || "unspecified"}${attendeeList}${colorInfo}${reminderInfo}\n`;
+            const meetLink = event.conferenceData?.entryPoints?.find(ep => ep.entryPointType === 'video')?.uri
+                ? `\nGoogle Meet: ${event.conferenceData.entryPoints.find(ep => ep.entryPointType === 'video')?.uri}`
+                : "";
+            return `${event.summary || "Untitled"} (${event.id || "no-id"})${locationInfo}${descriptionInfo}\nStart: ${event.start?.dateTime || event.start?.date || "unspecified"}\nEnd: ${event.end?.dateTime || event.end?.date || "unspecified"}${attendeeList}${colorInfo}${reminderInfo}${meetLink}\n`;
         })
         .join("\n");
 }

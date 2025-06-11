@@ -126,6 +126,7 @@ export const CreateEventArgumentsSchema = z.object({
   colorId: z.string().optional(),
   reminders: RemindersSchema.optional(),
   recurrence: z.array(z.string()).optional(),
+  addMeetConference: z.boolean().optional().describe("Whether to add a Google Meet conference to the event"),
   sendUpdates: z
     .enum(["all", "externalOnly", "none"])
     .default("all")

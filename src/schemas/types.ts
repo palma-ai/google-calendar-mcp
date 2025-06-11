@@ -36,6 +36,26 @@ export interface CalendarEvent {
     overrides?: CalendarEventReminder[];
   };
   recurrence?: string[] | null;
+  conferenceData?: {
+    createRequest?: {
+      requestId?: string;
+      conferenceSolutionKey?: {
+        type?: string;
+      };
+    };
+    entryPoints?: Array<{
+      entryPointType?: string;
+      uri?: string;
+      label?: string;
+    }>;
+    conferenceSolution?: {
+      key?: {
+        type?: string;
+      };
+      name?: string;
+      iconUri?: string;
+    };
+  };
 }
 
 // Type-safe response based on Google Calendar FreeBusy API
