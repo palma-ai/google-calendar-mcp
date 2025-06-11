@@ -1,105 +1,248 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  ListToolsRequestSchema,
-  CallToolRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
-import { OAuth2Client } from "google-auth-library";
-import { fileURLToPath } from "url";
+#!/usr/bin/env node
 
-// Import modular components
-import { initializeOAuth2Client } from './auth/client.js';
-import { AuthServer } from './auth/server.js';
-import { TokenManager } from './auth/tokenManager.js';
+import express from "express";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
+import { InvalidTokenError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
+import { mcpAuthMetadataRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
+import { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import { Request, Response } from "express";
+import { createOAuth2Client } from './auth/client.js';
 import { getToolDefinitions } from './handlers/listTools.js';
 import { handleCallTool } from './handlers/callTool.js';
 
-// --- Global Variables --- 
-// Create server instance (global for export)
-const server = new Server(
-  {
-    name: "google-calendar",
-    version: "1.0.0",
-  },
-  {
-    capabilities: {
-      tools: {},
+// Server factory function
+function getServer(): Server {
+  const server = new Server(
+    {
+      name: "google-calendar",
+      version: "1.0.0",
     },
-  }
+    {
+      capabilities: {
+        tools: {},
+      },
+    }
+  );
+
+  // Tool handlers
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    return getToolDefinitions();
+  });
+
+  server.setRequestHandler(CallToolRequestSchema, async (request, { authInfo }) => {
+    if (!authInfo) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: "Error: Authentication required. Please provide valid authInfo.",
+          },
+        ],
+      };
+    }
+
+    // Create OAuth2Client with the token from authInfo
+    const oauth2Client = createOAuth2Client(authInfo.token, authInfo.expiresAt);
+    return handleCallTool(request, oauth2Client);
+  });
+
+  return server;
+}
+
+// Express server setup
+const app = express();
+app.use(express.json());
+
+// Get server configuration from environment variables
+const SERVER_PORT = process.env.PORT || 3011;
+const SERVER_HOST = process.env.SERVER_HOST || "localhost";
+
+// Google OAuth 2.0 endpoints and metadata
+const googleOAuthMetadata = {
+  issuer: "https://accounts.google.com",
+  authorization_endpoint: "https://accounts.google.com/o/oauth2/v2/auth",
+  token_endpoint: "https://oauth2.googleapis.com/token",
+  userinfo_endpoint: "https://openidconnect.googleapis.com/v1/userinfo",
+  revocation_endpoint: "https://oauth2.googleapis.com/revoke",
+  jwks_uri: "https://www.googleapis.com/oauth2/v3/certs",
+  response_types_supported: ["code"],
+  subject_types_supported: ["public"],
+  id_token_signing_alg_values_supported: ["RS256"],
+  scopes_supported: [
+    "openid",
+    "email",
+    "profile",
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar.settings.readonly",
+  ],
+  token_endpoint_auth_methods_supported: [
+    "client_secret_basic",
+    "client_secret_post",
+  ],
+  claims_supported: [
+    "aud",
+    "email",
+    "email_verified",
+    "exp",
+    "family_name",
+    "given_name",
+    "iat",
+    "iss",
+    "locale",
+    "name",
+    "picture",
+    "sub",
+  ],
+  code_challenge_methods_supported: ["S256"],
+  grant_types_supported: ["authorization_code", "refresh_token"],
+};
+
+// Set up OAuth metadata routes - points clients to Google's OAuth servers
+const resourceServerUrl = new URL(`http://${SERVER_HOST}:${SERVER_PORT}`);
+app.use(
+  mcpAuthMetadataRouter({
+    oauthMetadata: googleOAuthMetadata,
+    resourceServerUrl,
+    scopesSupported: [
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/calendar.settings.readonly",
+    ],
+    resourceName: "Google Calendar MCP Server",
+  })
 );
 
-let oauth2Client: OAuth2Client;
-let tokenManager: TokenManager;
-let authServer: AuthServer;
+// Middleware to handle bearer token authentication with Google token verification
+const tokenMiddleware = requireBearerAuth({
+  requiredScopes: ["https://www.googleapis.com/auth/calendar"],
+  verifier: {
+    verifyAccessToken: async (token: string): Promise<AuthInfo> => {
+      // Use Google's tokeninfo endpoint to verify the token
+      const response = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?access_token=${token}`
+      );
 
-// --- Main Application Logic --- 
-async function main() {
-  try {
-    // 1. Initialize Authentication
-    oauth2Client = await initializeOAuth2Client();
-    tokenManager = new TokenManager(oauth2Client);
-    authServer = new AuthServer(oauth2Client);
-
-    // 2. Start auth server if authentication is required
-    // The start method internally validates tokens first
-    const authSuccess = await authServer.start();
-    if (!authSuccess) {
-      process.exit(1);
-    }
-
-    // 3. Set up MCP Handlers
-    
-    // List Tools Handler
-    server.setRequestHandler(ListToolsRequestSchema, async () => {
-      // Directly return the definitions from the handler module
-      return getToolDefinitions();
-    });
-
-    // Call Tool Handler
-    server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      // Check if tokens are valid before handling the request
-      if (!(await tokenManager.validateTokens())) {
-        throw new Error("Authentication required. Please run 'npm run auth' to authenticate.");
+      // Important: IF not MCP client will not refresh tokens
+      if (!response.ok && [400, 401].includes(response.status)) {
+        throw new InvalidTokenError("Invalid token");
       }
-      
-      // Delegate the actual tool execution to the specialized handler
-      return handleCallTool(request, oauth2Client);
-    });
 
-    // 4. Connect Server Transport
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
+      if (!response.ok) {
+        throw new InvalidTokenError(
+          `Token verification failed with status ${response.status}`
+        );
+      }
 
-    // 5. Set up Graceful Shutdown
-    process.on("SIGINT", cleanup);
-    process.on("SIGTERM", cleanup);
+      const tokenInfo = await response.json();
 
-  } catch (error: unknown) {
-    process.exit(1);
-  }
-}
+      // Google's tokeninfo endpoint validates the token for us
+      // No need to check client ID since we accept any valid Google token
+      return {
+        token,
+        clientId: tokenInfo.aud || "google",
+        scopes: tokenInfo.scope ? tokenInfo.scope.split(" ") : ["calendar"],
+        expiresAt: tokenInfo.exp ? parseInt(tokenInfo.exp) : undefined,
+      };
+    },
+  },
+});
 
-// --- Cleanup Logic --- 
-async function cleanup() {
+app.post("/mcp", tokenMiddleware, async (req: Request, res: Response) => {
   try {
-    if (authServer) {
-      // Attempt to stop the auth server if it exists and might be running
-      await authServer.stop();
+    console.log("Creating server");
+    const server = getServer();
+    console.log("Creating transport");
+    const transport: StreamableHTTPServerTransport =
+      new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+      });
+    res.on("close", () => {
+      console.log("Request closed");
+      transport.close();
+      server.close();
+    });
+    console.log("Connecting to server");
+    await server.connect(transport);
+    console.log("Request received", req.body);
+    await transport.handleRequest(req, res, req.body);
+  } catch (error) {
+    console.error("Error handling MCP request:", error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32603,
+          message: "Internal server error",
+        },
+        id: null,
+      });
     }
-    process.exit(0);
-  } catch (error: unknown) {
-    process.exit(1);
   }
-}
+});
 
-// --- Exports & Execution Guard --- 
-// Export server and main for testing or potential programmatic use
-export { main, server };
+app.get("/mcp", async (req: Request, res: Response) => {
+  console.log("Received GET MCP request");
+  res.writeHead(405).end(
+    JSON.stringify({
+      jsonrpc: "2.0",
+      error: {
+        code: -32000,
+        message: "Method not allowed.",
+      },
+      id: null,
+    })
+  );
+});
 
-// Run main() only when this script is executed directly
-const isDirectRun = import.meta.url.startsWith('file://') && process.argv[1] === fileURLToPath(import.meta.url);
-if (isDirectRun) {
-  main().catch(() => {
-    process.exit(1);
-  });
-}
+app.delete("/mcp", async (req: Request, res: Response) => {
+  console.log("Received DELETE MCP request");
+  res.writeHead(405).end(
+    JSON.stringify({
+      jsonrpc: "2.0",
+      error: {
+        code: -32000,
+        message: "Method not allowed.",
+      },
+      id: null,
+    })
+  );
+});
+
+// Start the server
+app.listen(SERVER_PORT, () => {
+  console.log(
+    `Google Calendar MCP Stateless Streamable HTTP Server listening on port ${SERVER_PORT}`
+  );
+  console.log(
+    `OAuth Protected Resource Metadata: ${resourceServerUrl.origin}/.well-known/oauth-protected-resource`
+  );
+  console.log(
+    `OAuth Authorization Server Metadata: ${resourceServerUrl.origin}/.well-known/oauth-authorization-server`
+  );
+  console.log(
+    `Google OAuth Authorization Endpoint: ${googleOAuthMetadata.authorization_endpoint}`
+  );
+  console.log(
+    `Google OAuth Token Endpoint: ${googleOAuthMetadata.token_endpoint}`
+  );
+  console.log("");
+  console.log("Optional environment variables:");
+  console.log("- PORT: Server port (default: 3011)");
+  console.log("- SERVER_HOST: Server hostname (default: localhost)");
+  console.log("");
+  console.log("The MCP client will:");
+  console.log("1. Discover metadata from your server");
+  console.log("2. Be directed to Google's OAuth servers for authentication");
+  console.log("3. Send Google access tokens to your server for API calls");
+  console.log("");
+  console.log(
+    "Note: Google OAuth client credentials are configured in the MCP client, not this server."
+  );
+});

@@ -32,4 +32,13 @@ export async function loadCredentials(): Promise<{ client_id: string; client_sec
   } catch (error) {
     throw new Error(`Error loading credentials: ${error instanceof Error ? error.message : error}`);
   }
+}
+
+export function createOAuth2Client(accessToken: string, expiresAt?: number): OAuth2Client {
+  const oauth2Client = new OAuth2Client();
+  oauth2Client.setCredentials({
+    access_token: accessToken,
+    expiry_date: expiresAt ? expiresAt * 1000 : undefined,
+  });
+  return oauth2Client;
 } 

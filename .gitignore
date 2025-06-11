@@ -6,3 +6,4 @@ gcp-oauth.keys.json
 coverage/
 settings.local.json
 CLAUDE.md
+dist
