@@ -38,25 +38,21 @@ export class CreateEventHandler extends BaseToolHandler {
         colorId: args.colorId,
         reminders: args.reminders,
         recurrence: args.recurrence,
-      };
-
-      // Add Google Meet conference if requested
-      if (args.addMeetConference) {
-        requestBody.conferenceData = {
+        conferenceData: {
           createRequest: {
             requestId: `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`,
             conferenceSolutionKey: {
               type: "hangoutsMeet"
             }
           }
-        };
-      }
+        }
+      };
 
       const response = await calendar.events.insert({
         calendarId: args.calendarId,
         requestBody: requestBody,
         sendUpdates: args.sendUpdates,
-        conferenceDataVersion: args.addMeetConference ? 1 : 0
+        conferenceDataVersion: 1
       });
       if (!response.data)
         throw new Error("Failed to create event, no data returned");
