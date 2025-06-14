@@ -38,11 +38,18 @@ export class CreateEventHandler extends BaseToolHandler {
         colorId: args.colorId,
         reminders: args.reminders,
         recurrence: args.recurrence,
+        conferenceData: {
+          createRequest: {
+            requestId: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
+            conferenceSolutionKey: { type: "hangoutsMeet" }
+          }
+        }
       };
       const response = await calendar.events.insert({
         calendarId: args.calendarId,
         requestBody: requestBody,
         sendUpdates: args.sendUpdates,
+        conferenceDataVersion: 1
       });
       if (!response.data)
         throw new Error("Failed to create event, no data returned");
